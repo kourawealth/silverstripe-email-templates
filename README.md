@@ -8,7 +8,7 @@ SilverStripe Email Templates module
 This module lets you have user editable email templates through the admin interface.
 
 Features
-==================
+=====================
 
 - Define app level email templates
 - Predefine content in ss templates for ease of use
