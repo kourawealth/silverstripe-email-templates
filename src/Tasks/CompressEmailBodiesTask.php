@@ -5,10 +5,12 @@ namespace LeKoala\EmailTemplates\Tasks;
 use SilverStripe\ORM\DB;
 use SilverStripe\Dev\BuildTask;
 use LeKoala\EmailTemplates\Models\SentEmail;
-use SilverStripe\Control\Director;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\ORM\Connect\MySQLDatabase;
 use SilverStripe\ORM\Queries\SQLUpdate;
+use SilverStripe\PolyExecution\PolyOutput;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
 
 /**
  *
@@ -20,39 +22,42 @@ use SilverStripe\ORM\Queries\SQLUpdate;
  */
 class CompressEmailBodiesTask extends BuildTask
 {
-    private static $segment = 'CompressEmailBodiesTask';
+    protected static string $commandName = 'CompressEmailBodiesTask';
 
-    protected $title = "Compress Email Bodies task";
-    protected $description = "Finds all non-compressed sent email bodies and compresses them";
+    protected string $title = "Compress Email Bodies task";
 
-    public function isEnabled()
+    protected static string $description = "Finds all non-compressed sent email bodies and compresses them";
+
+    private static bool $can_run_in_browser = false;
+
+    public function isEnabled(): bool
     {
-        return Director::is_cli() && parent::isEnabled() && function_exists('gzdeflate') && Config::forClass(SentEmail::class)->get('compress_body');
+        return parent::isEnabled() && function_exists('gzdeflate') && Config::forClass(SentEmail::class)->get('compress_body');
     }
 
-    public function run($request)
+    protected function execute(InputInterface $input, PolyOutput $output): int
     {
         $table = SentEmail::singleton()->baseTable();
         $fromWhere = "FROM \"$table\" WHERE \"Body\" NOT LIKE '" . SentEmail::COMPRESSED_SIGNATURE . "%'";
         $total = DB::query("SELECT COUNT(ID) $fromWhere")->value();
 
         if (!$total) {
-            echo "No non-compressed emails found\n";
-            return;
+            $output->writeln("No non-compressed emails found");
+            return Command::SUCCESS;
         }
 
         $nonCompressed = DB::query("SELECT ID, \"Body\" $fromWhere");
 
-        echo "Found " . $total . " non-compressed emails\n";
+        $output->writeln("Found " . $total . " non-compressed emails");
 
         foreach ($nonCompressed as $pos => $row) {
             if (!$row['Body']) {
-                echo "Email with ID {$row['ID']} has no body\n";
+                $output->writeln("Email with ID {$row['ID']} has no body");
                 continue;
             }
             $compressed = gzdeflate($row['Body'] ?? '');
             if ($compressed === false) {
-                echo "\tFailed to compress email with ID {$row['ID']}\n";
+                $output->writeln("\tFailed to compress email with ID {$row['ID']}");
                 continue;
             }
 
@@ -64,25 +69,27 @@ class CompressEmailBodiesTask extends BuildTask
                 'ID' => $row['ID'],
             ])->execute();
 
-            $this->progress($pos, $total);
+            $this->progress($output, $pos, $total);
         }
 
         // optimise table
-        $this->optimizeTable();
-        echo "\n";
+        $this->optimizeTable($output);
+        $output->writeln('');
+
+        return Command::SUCCESS;
     }
 
-    public function optimizeTable()
+    public function optimizeTable(PolyOutput $output)
     {
         $table = SentEmail::singleton()->baseTable();
-        echo "\nOptimizing $table table...\n";
+        $output->writeln(['', "Optimizing $table table..."]);
         $db = DB::get_conn();
         if ($db instanceof MySQLDatabase) {
             DB::query("OPTIMIZE TABLE \"$table\"");
         } elseif (get_class($db) == "SilverStripe\PostgreSQL\PostgreSQLDatabase") {
             DB::query("VACUUM FULL \"$table\"");
         } else {
-            echo "Database not supported for optimization\n";
+            $output->writeln("Database not supported for optimization");
         }
     }
 
@@ -97,7 +104,7 @@ class CompressEmailBodiesTask extends BuildTask
         '⠇',
     ];
 
-    public function progress($pos, $total)
+    public function progress(PolyOutput $output, $pos, $total)
     {
         if ($total) {
             $percent = round($pos / $total * 100, 2);
@@ -109,9 +116,9 @@ class CompressEmailBodiesTask extends BuildTask
             $spinner .= "$edge";
             $spinner .= str_repeat(' ', 40 - strlen($spinner));
             $spinner .= "] $percent%   ";
-            echo $spinner;
+            $output->write($spinner);
             if ($percentInt > 0 && $percentInt % 100 == 0) {
-                echo "\n";
+                $output->writeln('');
             }
         }
     }

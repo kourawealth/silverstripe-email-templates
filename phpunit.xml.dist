@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
     bootstrap="vendor/silverstripe/framework/tests/bootstrap.php"
     stopOnFailure="true"
     defaultTimeLimit="50"
@@ -13,11 +13,11 @@
         </testsuite>
     </testsuites>
 
-    <coverage processUncoveredFiles="true">
+    <source>
         <include>
             <directory suffix=".php">src/</directory>
         </include>
-    </coverage>
+    </source>
     <php>
         <env name="SS_IGNORE_DOT_ENV" value="true" />
         <env name="SS_DATABASE_CLASS" value="MySQLDatabase" />

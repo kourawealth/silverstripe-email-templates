@@ -273,7 +273,7 @@ TODO
 
 Compatibility
 ==================
-Tested with 5.x
+Tested with 6.x
 
 For 4.x, use branch 2
 For 3.x, use branch 1

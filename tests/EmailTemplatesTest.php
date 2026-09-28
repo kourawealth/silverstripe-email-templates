@@ -8,6 +8,7 @@ use SilverStripe\Security\Member;
 use LeKoala\Mailgun\MailgunHelper;
 use SilverStripe\Core\Environment;
 use SilverStripe\Dev\SapphireTest;
+use PHPUnit\Framework\Attributes\Group;
 use SilverStripe\Control\Email\Email;
 use SilverStripe\Control\Email\Mailer;
 use Mailgun\Model\Domain\IndexResponse;
@@ -17,9 +18,8 @@ use LeKoala\EmailTemplates\Tasks\EmailImportTask;
 
 /**
  * Test for EmailTemplates
- *
- * @group EmailTemplates
  */
+#[Group('EmailTemplates')]
 class EmailTemplatesTest extends SapphireTest
 {
     protected static $fixture_file = 'EmailTemplatesTest.yml';
@@ -59,6 +59,30 @@ class EmailTemplatesTest extends SapphireTest
         $email = $tpl->getEmail();
 
         $this->assertEquals("Default Subject", $email->getSubject());
+    }
+
+    public function testRenderWithData()
+    {
+        $email = new BetterEmail();
+        $email->addData('Name', 'Bob');
+
+        $this->assertEquals('Hi Bob', $email->renderWithData('Hi $Name'));
+    }
+
+    public function testRenderWithDataAcceptsNoContent()
+    {
+        // Subject is rendered too, and may not be set yet (eg: previews)
+        $email = new BetterEmail();
+
+        $this->assertEquals('', $email->renderWithData(null));
+    }
+
+    public function testPreviewDataReplacesVariables()
+    {
+        $tpl = EmailTemplate::getByCode('ChangePassword');
+        $email = $tpl->setPreviewData($tpl->getEmail());
+
+        $this->assertEquals('{AbsoluteBaseURL}', $email->getData()->AbsoluteBaseURL);
     }
 
     public function testMakeCode()
