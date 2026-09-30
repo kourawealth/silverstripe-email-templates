@@ -200,7 +200,9 @@ class EmailImportTask extends BuildTask
             $errors = self::checkContentForErrors($content);
             if (!empty($errors)) {
                 $output->writeln("<error>Invalid syntax was found in '$relativeFilePath'. Please fix these errors before importing the template</>");
+                $output->startList();
                 $output->writeListItem($errors);
+                $output->stopList();
                 continue;
             }
 
