@@ -6,7 +6,7 @@ use Exception;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Control\Director;
-use SilverStripe\ORM\DataExtension;
+use SilverStripe\Core\Extension;
 use SilverStripe\Control\Email\Email;
 use SilverStripe\SiteConfig\SiteConfig;
 use LeKoala\EmailTemplates\Models\EmailTemplate;
@@ -23,7 +23,7 @@ use SilverStripe\Forms\HTMLEditor\HTMLEditorField;
  *
  * @author Kalyptus SPRL <thomas@kalyptus.be>
  */
-class EmailTemplateSiteConfigExtension extends DataExtension
+class EmailTemplateSiteConfigExtension extends Extension
 {
 
     private static $db = [

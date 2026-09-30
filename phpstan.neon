@@ -1,7 +1,6 @@
 parameters:
     treatPhpDocTypesAsCertain: false
     ignoreErrors:
-        - '#Static property [a-zA-Z0-9\\_]+::\$segment is never read, only written\.#'
         - '#Static property [a-zA-Z0-9\\_]+::\$table_name is never read, only written\.#'
         - '#Static property [a-zA-Z0-9\\_]+::\$db is never read, only written\.#'
         - '#Static property [a-zA-Z0-9\\_]+::\$summary_fields is never read, only written\.#'
@@ -13,6 +12,7 @@ parameters:
         - '#Static property [a-zA-Z0-9\\_]+::\$allowed_actions is never read, only written\.#'
         - '#Static property [a-zA-Z0-9\\_]+::\$has_one is never read, only written\.#'
         - '#Static property [a-zA-Z0-9\\_]+::\$compress_body is never read, only written\.#'
+        - '#Static property [a-zA-Z0-9\\_]+::\$can_run_in_browser is never read, only written\.#'
         - '#TractorCow\\Fluent\\Model\\Locale#'
         - '#SilverStripe\\Subsites\\Model\\Subsite#'
     parallel:

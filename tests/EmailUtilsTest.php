@@ -3,13 +3,13 @@
 namespace LeKoala\EmailTemplates\Test;
 
 use SilverStripe\Dev\SapphireTest;
+use PHPUnit\Framework\Attributes\Group;
 use LeKoala\EmailTemplates\Helpers\EmailUtils;
 
 /**
  * Test for EmailUtils
- *
- * @group EmailTemplates
  */
+#[Group('EmailTemplates')]
 class EmailUtilsTest extends SapphireTest
 {
     public function testDisplayName()

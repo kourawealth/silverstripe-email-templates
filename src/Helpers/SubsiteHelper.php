@@ -141,8 +141,10 @@ class SubsiteHelper
      */
     public static function SubsiteIDFromSession()
     {
-        $session = Controller::curr()->getRequest()->getSession();
-        if ($session) {
+        // No controller in CLI/queued contexts, and getSession() throws without one
+        $request = Controller::curr()?->getRequest();
+        if ($request && $request->hasSession()) {
+            $session = $request->getSession();
             return $session->get('SubsiteID');
         }
         return 0;

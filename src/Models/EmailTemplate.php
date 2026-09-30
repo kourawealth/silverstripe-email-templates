@@ -7,7 +7,7 @@ use SilverStripe\Forms\Tab;
 use SilverStripe\i18n\i18n;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\ORM\DataObject;
-use SilverStripe\View\ArrayData;
+use SilverStripe\Model\ArrayData;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Security\Member;
 use SilverStripe\Control\Director;
@@ -445,12 +445,14 @@ class EmailTemplate extends DataObject
         $data = [];
 
         // Get an array of data like ["Body" => "My content", "Callout" => "The callout..."]
+        // Only ArrayData (set by applyTemplate) and DataObject can list their fields
         $emailData = $email->getData();
+        $emailData = method_exists($emailData, 'toMap') ? $emailData->toMap() : [];
 
         // Parse the data for variables
         // For now, simply replace them by their name in curly braces
         foreach ($emailData as $k => $v) {
-            if (!$v) {
+            if (!$v || !is_string($v)) {
                 continue;
             }
 

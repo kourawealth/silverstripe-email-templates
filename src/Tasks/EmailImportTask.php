@@ -16,6 +16,10 @@ use LeKoala\EmailTemplates\Models\EmailTemplate;
 use LeKoala\EmailTemplates\Helpers\SubsiteHelper;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\i18n\TextCollection\i18nTextCollector;
+use SilverStripe\PolyExecution\PolyOutput;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 
 /**
  * Import email templates provided from ss files
@@ -30,33 +34,39 @@ use SilverStripe\i18n\TextCollection\i18nTextCollector;
  */
 class EmailImportTask extends BuildTask
 {
-    private static $segment = 'EmailImportTask';
+    // Keeps the legacy dev/tasks/EmailImportTask route working
+    protected static string $commandName = 'EmailImportTask';
 
-    protected $title = "Email import task";
-    protected $description = "Finds all *Email.ss templates and imports them into the CMS, if they don't already exist.";
+    protected string $title = "Email import task";
 
-    public function run($request)
+    protected static string $description = "Finds all *Email.ss templates and imports them into the CMS, if they don't already exist.";
+
+    public static function getHelp(): string
+    {
+        return 'Remember to flush the templates/translations if needed';
+    }
+
+    public function getOptions(): array
+    {
+        return [
+            new InputOption('clear', null, InputOption::VALUE_NONE, 'Delete all existing email templates before running the task'),
+            new InputOption('overwrite', null, InputOption::VALUE_REQUIRED, 'Overwrite templates that exist in the CMS (soft|hard). Soft will replace a template if not modified by the user, hard will replace it even if modified by the user'),
+            new InputOption('templates', null, InputOption::VALUE_REQUIRED, 'Comma separated list of template codes to import'),
+            new InputOption('subsite', null, InputOption::VALUE_REQUIRED, 'Requires subsites. Create email templates in all subsites including main site (all), or only in the chosen subsite (subsite ID). If a subsite is active, it will be used by default'),
+            new InputOption('locales', null, InputOption::VALUE_REQUIRED, 'Requires fluent. Comma separated list of locales to import, e.g. fr,en'),
+        ];
+    }
+
+    protected function execute(InputInterface $input, PolyOutput $output): int
     {
         $subsiteSupport = SubsiteHelper::usesSubsite();
         $fluentSupport = FluentHelper::usesFluent();
 
-        echo 'Run with ?clear=1 to clear empty database before running the task<br/>';
-        echo 'Run with ?overwrite=soft|hard to overwrite templates that exists in the cms. Soft will replace template if not modified by the user, hard will replace template even if modified by user.<br/>';
-        echo 'Run with ?templates=xxx,yyy to specify which template should be imported<br/>';
-        if ($subsiteSupport) {
-            echo 'Run with ?subsite=all|subsiteID to create email templates in all subsites (including main site) or only in the chosen subsite (if a subsite is active, it will be used by default).<br/>';
-        }
-        if ($fluentSupport) {
-            echo 'Run with ?locales=fr,en to choose which locale to import.<br/>';
-        }
-        echo '<strong>Remember to flush the templates/translations if needed</strong><br/>';
-        echo '<hr/>';
-
-        $overwrite = $request->getVar('overwrite');
-        $clear = $request->getVar('clear');
-        $templatesToImport = $request->getVar('templates');
-        $importToSubsite = $request->getVar('subsite');
-        $chosenLocales = $request->getVar('locales');
+        $overwrite = $input->getOption('overwrite');
+        $clear = $input->getOption('clear');
+        $templatesToImport = $input->getOption('templates');
+        $importToSubsite = $input->getOption('subsite');
+        $chosenLocales = $input->getOption('locales');
 
         // Normalize argument
         if ($overwrite && $overwrite != 'soft' && $overwrite != 'hard') {
@@ -81,11 +91,11 @@ class EmailImportTask extends BuildTask
                 ];
             }
             if (SubsiteHelper::currentSubsiteID()) {
-                DB::alteration_message("Importing to current subsite. Run from main site to import other subsites at once.", "created");
+                $output->writeln("<info>Importing to current subsite. Run from main site to import other subsites at once.</>");
                 $subsites = [];
             }
             if (!empty($subsites)) {
-                DB::alteration_message("Importing to subsites : " . implode(',', array_values($subsites)), "created");
+                $output->writeln("<info>Importing to subsites : " . implode(',', array_values($subsites)) . "</>");
             }
         }
 
@@ -94,8 +104,8 @@ class EmailImportTask extends BuildTask
         }
 
         // Do we clear our templates?
-        if ($clear == 1) {
-            DB::alteration_message("Clear all email templates", "created");
+        if ($clear) {
+            $output->writeln("<info>Clear all email templates</>");
             $emailTemplates = EmailTemplate::get();
             foreach ($emailTemplates as $emailTemplate) {
                 $emailTemplate->delete();
@@ -155,7 +165,7 @@ class EmailImportTask extends BuildTask
             $code = preg_replace('/Email$/', '', $fileName);
 
             if (!empty($templatesToImport) && !in_array($code, $templatesToImport)) {
-                DB::alteration_message("Template with code <b>$code</b> was ignored.", "repaired");
+                $output->writeln("<comment>Template with code $code was ignored.</>");
                 continue;
             }
 
@@ -171,11 +181,11 @@ class EmailImportTask extends BuildTask
             }
 
             if (!$overwrite && $emailTemplate) {
-                DB::alteration_message("Template with code <b>$code</b> already exists. Choose overwrite if you want to import again.", "repaired");
+                $output->writeln("<comment>Template with code $code already exists. Choose overwrite if you want to import again.</>");
                 continue;
             }
             if ($overwrite == 'soft' && $templateModified) {
-                DB::alteration_message("Template with code <b>$code</b> has been modified by the user. Choose overwrite=hard to change.", "repaired");
+                $output->writeln("<comment>Template with code $code has been modified by the user. Choose overwrite=hard to change.</>");
                 continue;
             }
 
@@ -189,11 +199,10 @@ class EmailImportTask extends BuildTask
             // Analyze content to find incompatibilities
             $errors = self::checkContentForErrors($content);
             if (!empty($errors)) {
-                echo "<div style='color:red'>Invalid syntax was found in '$relativeFilePath'. Please fix these errors before importing the template<ul>";
-                foreach ($errors as $error) {
-                    echo '<li>' . $error . '</li>';
-                }
-                echo '</ul></div>';
+                $output->writeln("<error>Invalid syntax was found in '$relativeFilePath'. Please fix these errors before importing the template</>");
+                $output->startList();
+                $output->writeListItem($errors);
+                $output->stopList();
                 continue;
             }
 
@@ -309,11 +318,13 @@ class EmailImportTask extends BuildTask
             }
 
             if ($isOverwritten) {
-                DB::alteration_message("Overwrote <b>{$emailTemplate->Code}</b>", "created");
+                $output->writeln("<info>Overwrote {$emailTemplate->Code}</>");
             } else {
-                DB::alteration_message("Imported <b>{$emailTemplate->Code}</b>", "created");
+                $output->writeln("<info>Imported {$emailTemplate->Code}</>");
             }
         }
+
+        return Command::SUCCESS;
     }
 
     public static function checkContentForErrors($content)
@@ -386,7 +397,7 @@ class EmailImportTask extends BuildTask
 
             $source = '<!DOCTYPE html><html><body>' . $content . '</body></html>';
             $dom = new DomDocument('1.0', 'UTF-8');
-            $dom->loadHTML(mb_convert_encoding($source, 'HTML-ENTITIES', 'UTF-8'));
+            $dom->loadHTML(mb_encode_numericentity($source, [0x80, 0x10FFFF, 0, 0x1FFFFF], 'UTF-8'));
 
             // Look for nodes to assign to proper fields (will overwrite content)
             $fields = ['Content', 'Callout', 'Subject'];
